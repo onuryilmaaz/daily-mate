@@ -170,7 +170,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Daily Mate</h1>
               <p className="text-sm text-gray-600">
-                Hoşgeldiniz, {session.user.email}
+                Hoşgeldiniz, {session.user.name} {session.user.surname}
               </p>
             </div>
             <button

@@ -5,14 +5,19 @@ import User from "@/models/User.model";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, name, surname } = await req.json();
 
     // Giriş verilerini doğrula
-    if (!email || !password) {
+    if (!email || !name || !surname) {
       return NextResponse.json(
-        { error: "E-posta ve şifre zorunludur" },
+        { error: "E-posta, isim ve soyisim zorunludur" },
         { status: 400 }
       );
+    }
+
+    // Password sadece credentials provider için zorunlu
+    if (!password) {
+      return NextResponse.json({ error: "Şifre zorunludur" }, { status: 400 });
     }
 
     if (password.length < 6) {
@@ -27,6 +32,21 @@ export async function POST(req: NextRequest) {
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         { error: "Geçerli bir e-posta adresi giriniz" },
+        { status: 400 }
+      );
+    }
+
+    // İsim ve soyisim uzunluk kontrolü
+    if (name.trim().length < 2) {
+      return NextResponse.json(
+        { error: "İsim en az 2 karakter olmalıdır" },
+        { status: 400 }
+      );
+    }
+
+    if (surname.trim().length < 2) {
+      return NextResponse.json(
+        { error: "Soyisim en az 2 karakter olmalıdır" },
         { status: 400 }
       );
     }
@@ -53,6 +73,9 @@ export async function POST(req: NextRequest) {
     const newUser = new User({
       email: email.toLowerCase(),
       password: hashedPassword,
+      name: name.trim(),
+      surname: surname.trim(),
+      provider: "credentials",
     });
 
     await newUser.save();
@@ -63,6 +86,8 @@ export async function POST(req: NextRequest) {
         user: {
           id: newUser._id,
           email: newUser.email,
+          name: newUser.name,
+          surname: newUser.surname,
         },
       },
       { status: 201 }
