@@ -3,317 +3,217 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-interface Workplace {
-  _id: string;
-  name: string;
-  dailyWage: number;
-  color: string;
-}
-
 interface WorkDay {
   _id: string;
   date: string;
-  wageOnThatDay: number;
   workplaceId: {
     _id: string;
     name: string;
     color: string;
     dailyWage: number;
   };
+  wageOnThatDay: number;
+  userId: string;
+}
+
+interface Workplace {
+  _id: string;
+  name: string;
+  color: string;
+  dailyWage: number;
 }
 
 interface CalendarViewProps {
   workdays: WorkDay[];
   workplaces: Workplace[];
+  onWorkdayAdded?: (workday: WorkDay) => void;
+  selectedMonth: number;
+  selectedYear: number;
+  onDateChange: (month: number, year: number) => void;
 }
 
 export default function CalendarView({
   workdays,
   workplaces,
+  onWorkdayAdded,
+  selectedMonth,
+  selectedYear,
+  onDateChange,
 }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [modalWorkday, setModalWorkday] = useState<WorkDay | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedWorkplace, setSelectedWorkplace] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const router = useRouter();
 
-  // Bu ayın ilk ve son günlerini hesapla
-  const firstDayOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1
-  );
-  const lastDayOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0
-  );
-  const firstDayOfWeek = firstDayOfMonth.getDay();
+  const today = new Date();
+  const year = selectedYear;
+  const month = selectedMonth - 1; // Convert to 0-based month
 
-  // Takvim için gün sayısını hesapla
+  // Ayın ilk günü ve son günü
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
   const daysInMonth = lastDayOfMonth.getDate();
 
-  // Önceki aydan gösterilecek günler
-  const prevMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() - 1,
-    0
-  );
-  const daysFromPrevMonth = firstDayOfWeek;
+  // Ayın ilk gününün hangi gün olduğunu bulalım (0: Pazar, 1: Pazartesi, ...)
+  const firstDayWeekday = firstDayOfMonth.getDay();
 
-  // Sonraki aydan gösterilecek günler
-  const totalCells = 42; // 6 hafta x 7 gün
-  const daysFromNextMonth = totalCells - daysInMonth - daysFromPrevMonth;
+  // Takvim günlerini oluşturalım
+  const calendarDays = [];
 
-  // Çalışma günlerini tarih anahtarı ile eşle
-  const workdayMap = new Map();
-  workdays.forEach((workday) => {
-    const date = new Date(workday.date);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(date.getDate()).padStart(2, "0")}`;
-    workdayMap.set(key, workday);
-  });
+  // Önceki ayın son günlerini ekleyelim
+  for (let i = firstDayWeekday - 1; i >= 0; i--) {
+    const prevDate = new Date(year, month, -i);
+    calendarDays.push({
+      date: prevDate,
+      isCurrentMonth: false,
+      isToday: false,
+      hasWork: false,
+      workDay: null as WorkDay | null,
+    });
+  }
 
-  // Tarih formatı
-  const formatDate = (date: Date) => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(date.getDate()).padStart(2, "0")}`;
-  };
+  // Bu ayın günlerini ekleyelim
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    const dateString = date.toISOString().split("T")[0];
+    const workDay = workdays.find((wd) => wd.date.split("T")[0] === dateString);
 
-  // Önceki ay
+    calendarDays.push({
+      date,
+      isCurrentMonth: true,
+      isToday: date.toDateString() === today.toDateString(),
+      hasWork: !!workDay,
+      workDay: workDay || null,
+    });
+  }
+
+  // Sonraki ayın ilk günlerini ekleyelim (42 gün tamamlamak için)
+  const remainingDays = 42 - calendarDays.length;
+  for (let day = 1; day <= remainingDays; day++) {
+    const nextDate = new Date(year, month + 1, day);
+    calendarDays.push({
+      date: nextDate,
+      isCurrentMonth: false,
+      isToday: false,
+      hasWork: false,
+      workDay: null,
+    });
+  }
+
+  // Ay isimleri
+  const monthNames = [
+    "Ocak",
+    "Şubat",
+    "Mart",
+    "Nisan",
+    "Mayıs",
+    "Haziran",
+    "Temmuz",
+    "Ağustos",
+    "Eylül",
+    "Ekim",
+    "Kasım",
+    "Aralık",
+  ];
+
+  // Gün isimleri
+  const dayNames = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+
   const goToPreviousMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    );
+    if (selectedMonth === 1) {
+      onDateChange(12, selectedYear - 1);
+    } else {
+      onDateChange(selectedMonth - 1, selectedYear);
+    }
   };
 
-  // Sonraki ay
   const goToNextMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-    );
+    if (selectedMonth === 12) {
+      onDateChange(1, selectedYear + 1);
+    } else {
+      onDateChange(selectedMonth + 1, selectedYear);
+    }
   };
 
-  // Bu aya git
   const goToCurrentMonth = () => {
-    setCurrentDate(new Date());
+    const currentDate = new Date();
+    onDateChange(currentDate.getMonth() + 1, currentDate.getFullYear());
   };
 
-  // Günü tıklama
-  const handleDayClick = (
-    day: number,
-    isCurrentMonth: boolean,
-    isPreviousMonth: boolean
-  ) => {
-    if (!isCurrentMonth) return;
-
-    let clickedDate: Date;
-    if (isPreviousMonth) {
-      clickedDate = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() - 1,
-        day
-      );
-    } else {
-      clickedDate = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        day
-      );
+  const openModal = (date: Date) => {
+    // Sadece bu ay ve bugünden önceki veya bugün olan günler için modal açılabilir
+    if (date.getMonth() !== month || date > today) {
+      return;
     }
 
-    const dateKey = formatDate(clickedDate);
-    const existingWorkday = workdayMap.get(dateKey);
-
-    if (existingWorkday) {
-      // Mevcut çalışma günü varsa, modalı aç
-      setModalWorkday(existingWorkday);
-      setSelectedDate(clickedDate);
-      setShowModal(true);
-    } else {
-      // Çalışma günü yoksa, ekleme modalını aç
-      setModalWorkday(null);
-      setSelectedDate(clickedDate);
-      setShowModal(true);
-    }
+    setSelectedDate(date);
+    setSelectedWorkplace("");
+    setError("");
+    setIsModalOpen(true);
   };
 
-  // Modal'ı kapat
   const closeModal = () => {
-    setShowModal(false);
-    setModalWorkday(null);
+    setIsModalOpen(false);
     setSelectedDate(null);
+    setSelectedWorkplace("");
     setError("");
   };
 
-  // Çalışma günü ekle
-  const handleAddWorkday = async (workplaceId: string, customWage?: number) => {
-    if (!selectedDate || isSubmitting) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    setIsSubmitting(true);
+    if (!selectedDate || !selectedWorkplace || submitting) {
+      return;
+    }
+
+    setSubmitting(true);
     setError("");
 
     try {
-      const selectedWorkplace = workplaces.find((wp) => wp._id === workplaceId);
-      const wageToUse =
-        customWage !== undefined
-          ? customWage
-          : selectedWorkplace?.dailyWage || 0;
-
       const response = await fetch("/api/workdays", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          date: formatDate(selectedDate),
-          workplaceId: workplaceId,
-          wageOnThatDay: wageToUse,
+          date: selectedDate.toISOString().split("T")[0],
+          workplaceId: selectedWorkplace,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Çalışma günü eklenirken hata oluştu");
+        setError(data.error || "İşlem sırasında hata oluştu");
         return;
       }
 
-      closeModal();
-      router.refresh();
-    } catch (error) {
-      setError("Çalışma günü eklenirken hata oluştu");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Çalışma günü sil
-  const handleDeleteWorkday = async () => {
-    if (!modalWorkday || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/workdays/${modalWorkday._id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Çalışma günü silinirken hata oluştu");
-        return;
+      // Call the callback with the new workday
+      if (onWorkdayAdded && data.workday) {
+        onWorkdayAdded(data.workday);
       }
 
       closeModal();
-      router.refresh();
     } catch (error) {
-      setError("Çalışma günü silinirken hata oluştu");
+      setError("İşlem sırasında hata oluştu");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
-  };
-
-  // Takvim oluştur
-  const renderCalendar = () => {
-    const days = [];
-
-    // Önceki aydan günler
-    for (let i = daysFromPrevMonth; i > 0; i--) {
-      const day = prevMonth.getDate() - i + 1;
-      days.push(
-        <div
-          key={`prev-${day}`}
-          className="h-8 sm:h-12 lg:h-16 flex items-center justify-center text-gray-300 text-xs sm:text-sm cursor-not-allowed"
-        >
-          {day}
-        </div>
-      );
-    }
-
-    // Bu ayın günleri
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        day
-      );
-      const dateKey = formatDate(date);
-      const workday = workdayMap.get(dateKey);
-      const isToday =
-        date.getDate() === new Date().getDate() &&
-        date.getMonth() === new Date().getMonth() &&
-        date.getFullYear() === new Date().getFullYear();
-
-      days.push(
-        <div
-          key={day}
-          onClick={() => handleDayClick(day, true, false)}
-          className={`h-8 sm:h-12 lg:h-16 p-1 cursor-pointer rounded-lg transition-all duration-200 border-2 ${
-            isToday
-              ? "border-indigo-500 bg-indigo-50"
-              : "border-transparent hover:border-gray-300 hover:bg-gray-50"
-          } ${workday ? "transform hover:scale-105 shadow-lg" : ""}`}
-          style={{
-            backgroundColor: workday ? workday.workplaceId.color : undefined,
-          }}
-        >
-          <div className="h-full w-full flex flex-col justify-between">
-            <div
-              className={`text-xs sm:text-sm font-medium ${
-                workday
-                  ? "text-white"
-                  : isToday
-                  ? "text-indigo-600"
-                  : "text-gray-700"
-              }`}
-            >
-              {day}
-            </div>
-            {workday && (
-              <div className="text-xs text-white font-semibold opacity-90 bg-black/20 rounded px-1">
-                ₺{workday.wageOnThatDay.toLocaleString("tr-TR")}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // Sonraki aydan günler
-    for (let day = 1; day <= daysFromNextMonth; day++) {
-      days.push(
-        <div
-          key={`next-${day}`}
-          className="h-8 sm:h-12 lg:h-16 flex items-center justify-center text-gray-300 text-xs sm:text-sm cursor-not-allowed"
-        >
-          {day}
-        </div>
-      );
-    }
-
-    return days;
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="w-full">
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between mb-4">
         <button
           onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Önceki Ay"
+          className="p-2 hover:bg-emerald-50 rounded-lg transition-colors"
         >
           <svg
-            className="w-5 h-5 text-gray-600"
+            className="w-4 h-4 text-gray-600"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -327,22 +227,18 @@ export default function CalendarView({
           </svg>
         </button>
 
-        <div className="flex-1 mx-4 text-center">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-800">
-            {currentDate.toLocaleDateString("tr-TR", {
-              month: "long",
-              year: "numeric",
-            })}
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {monthNames[month]} {year}
           </h3>
         </div>
 
         <button
           onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Sonraki Ay"
+          className="p-2 hover:bg-emerald-50 rounded-lg transition-colors"
         >
           <svg
-            className="w-5 h-5 text-gray-600"
+            className="w-4 h-4 text-gray-600"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -357,186 +253,156 @@ export default function CalendarView({
         </button>
       </div>
 
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Day Headers */}
+        {dayNames.map((dayName) => (
+          <div
+            key={dayName}
+            className="text-center py-2 text-xs font-medium text-gray-500"
+          >
+            {dayName}
+          </div>
+        ))}
+
+        {/* Calendar Days */}
+        {calendarDays.map((day, index) => {
+          const isClickable =
+            day.isCurrentMonth && day.date <= today && !day.hasWork;
+
+          return (
+            <div
+              key={index}
+              onClick={() => isClickable && openModal(day.date)}
+              className={`
+                aspect-square flex items-center justify-center text-sm relative
+                ${!day.isCurrentMonth ? "text-gray-300" : "text-gray-900"}
+                ${
+                  day.isToday
+                    ? "bg-emerald-100 text-emerald-700 font-semibold"
+                    : ""
+                }
+                ${day.hasWork ? "text-white font-medium" : ""}
+                ${isClickable ? "cursor-pointer hover:bg-emerald-50" : ""}
+                ${day.date > today ? "text-gray-300" : ""}
+                rounded-lg transition-colors
+              `}
+              style={{
+                backgroundColor: day.hasWork
+                  ? day.workDay?.workplaceId.color
+                  : undefined,
+              }}
+            >
+              <span className="relative z-10">{day.date.getDate()}</span>
+
+              {/* Work indicator */}
+              {day.hasWork && (
+                <div
+                  className="absolute inset-0 rounded-lg opacity-90"
+                  style={{ backgroundColor: day.workDay?.workplaceId.color }}
+                ></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      {workplaces.length > 0 && (
+        <div className="mt-4 border-t pt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">
+            İş Yerleri:
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {workplaces.map((workplace) => (
+              <div key={workplace._id} className="flex items-center space-x-2">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: workplace.color }}
+                ></div>
+                <span className="text-sm text-gray-600">{workplace.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
-      <div className="flex justify-center mb-6">
+      <div className="mt-4 text-center">
         <button
           onClick={goToCurrentMonth}
-          className="px-4 py-2 text-sm bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-lg hover:from-blue-200 hover:to-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
+          className="text-sm text-emerald-600 hover:text-emerald-500 font-medium"
         >
           Bu Aya Git
         </button>
       </div>
 
-      {/* Haftanın Günleri */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {[
-          "Pazar",
-          "Pazartesi",
-          "Salı",
-          "Çarşamba",
-          "Perşembe",
-          "Cuma",
-          "Cumartesi",
-        ].map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs sm:text-sm font-semibold text-gray-600 py-2"
-          >
-            {day.substring(0, 3)}
-          </div>
-        ))}
-      </div>
-
-      {/* Takvim */}
-      <div className="grid grid-cols-7 gap-1 mb-6">{renderCalendar()}</div>
-
-      {/* Legend */}
-      <div className="text-center">
-        <p className="text-xs text-gray-500 mb-2">
-          Çalışma günü eklemek için tarihe tıklayın
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <div className="flex items-center text-xs text-gray-500">
-            <div className="w-3 h-3 border-2 border-indigo-500 bg-indigo-50 rounded mr-2"></div>
-            Bugün
-          </div>
-          <div className="flex items-center text-xs text-gray-500">
-            <div className="w-3 h-3 bg-gray-400 rounded mr-2"></div>
-            Çalışma Günü
-          </div>
-        </div>
-      </div>
-
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-2xl rounded-2xl bg-white">
+      {isModalOpen && selectedDate && (
+        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                {modalWorkday
-                  ? `${selectedDate?.toLocaleDateString(
-                      "tr-TR"
-                    )} - Çalışma Günü`
-                  : `${selectedDate?.toLocaleDateString(
-                      "tr-TR"
-                    )} - Çalışma Günü Ekle`}
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Çalışma Günü Ekle
               </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {selectedDate.toLocaleDateString("tr-TR", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
 
-              {modalWorkday ? (
-                // Mevcut çalışma günü görünümü
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center mb-3">
-                      <div
-                        className="w-4 h-4 rounded-full mr-3"
-                        style={{
-                          backgroundColor: modalWorkday.workplaceId.color,
-                        }}
-                      ></div>
-                      <span className="font-semibold text-gray-800">
-                        {modalWorkday.workplaceId.name}
-                      </span>
-                    </div>
-                    <div className="text-2xl font-bold text-gray-800 mb-1">
-                      ₺{modalWorkday.wageOnThatDay.toLocaleString("tr-TR")}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Standart Yevmiye: ₺
-                      {modalWorkday.workplaceId.dailyWage.toLocaleString(
-                        "tr-TR"
-                      )}
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={closeModal}
-                      disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 transition-colors"
-                    >
-                      Kapat
-                    </button>
-                    <button
-                      onClick={handleDeleteWorkday}
-                      disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    >
-                      {isSubmitting ? "Siliniyor..." : "Sil"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // Yeni çalışma günü ekleme
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    Bu tarih için hangi iş yerinde çalışacaksınız?
-                  </p>
-
-                  <div className="max-h-60 overflow-y-auto space-y-2">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="workplace"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    İş Yeri Seçin
+                  </label>
+                  <select
+                    id="workplace"
+                    value={selectedWorkplace}
+                    onChange={(e) => setSelectedWorkplace(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                    required
+                  >
+                    <option value="">İş yeri seçiniz</option>
                     {workplaces.map((workplace) => (
-                      <button
-                        key={workplace._id}
-                        onClick={() => handleAddWorkday(workplace._id)}
-                        disabled={isSubmitting}
-                        className="w-full p-4 text-left border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div
-                              className="w-4 h-4 rounded-full mr-3"
-                              style={{ backgroundColor: workplace.color }}
-                            ></div>
-                            <div>
-                              <div className="font-semibold text-gray-800">
-                                {workplace.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                Günlük Yevmiye: ₺
-                                {workplace.dailyWage.toLocaleString("tr-TR")}
-                              </div>
-                            </div>
-                          </div>
-                          <svg
-                            className="w-5 h-5 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        </div>
-                      </button>
+                      <option key={workplace._id} value={workplace._id}>
+                        {workplace.name} -{" "}
+                        {workplace.dailyWage.toLocaleString("tr-TR")} ₺
+                      </option>
                     ))}
-                  </div>
-
-                  {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={closeModal}
-                      disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 transition-colors"
-                    >
-                      İptal
-                    </button>
-                  </div>
+                  </select>
                 </div>
-              )}
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || !selectedWorkplace}
+                    className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Ekleniyor..." : "Ekle"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
