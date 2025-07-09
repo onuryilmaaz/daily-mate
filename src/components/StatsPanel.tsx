@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface WorkplaceBreakdown {
   workplaceId: string;
@@ -45,22 +45,7 @@ export default function StatsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const currentDate = new Date();
-
-  const months = [
-    { value: 1, name: "Ocak" },
-    { value: 2, name: "Şubat" },
-    { value: 3, name: "Mart" },
-    { value: 4, name: "Nisan" },
-    { value: 5, name: "Mayıs" },
-    { value: 6, name: "Haziran" },
-    { value: 7, name: "Temmuz" },
-    { value: 8, name: "Ağustos" },
-    { value: 9, name: "Eylül" },
-    { value: 10, name: "Ekim" },
-    { value: 11, name: "Kasım" },
-    { value: 12, name: "Aralık" },
-  ];
+  const currentDate = useMemo(() => new Date(), []);
 
   const years = [];
   for (
@@ -71,21 +56,7 @@ export default function StatsPanel({
     years.push(year);
   }
 
-  useEffect(() => {
-    fetchStats();
-  }, [selectedMonth, selectedYear]);
-
-  useEffect(() => {
-    if (
-      workdaysLength !== undefined &&
-      selectedMonth === currentDate.getMonth() + 1 &&
-      selectedYear === currentDate.getFullYear()
-    ) {
-      fetchStats();
-    }
-  }, [workdaysLength]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -100,12 +71,26 @@ export default function StatsPanel({
       }
 
       setStats(data);
-    } catch (error) {
+    } catch {
       setError("İstatistikler yüklenirken hata oluştu");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedMonth, selectedYear, fetchStats]);
+
+  useEffect(() => {
+    if (
+      workdaysLength !== undefined &&
+      selectedMonth === currentDate.getMonth() + 1 &&
+      selectedYear === currentDate.getFullYear()
+    ) {
+      fetchStats();
+    }
+  }, [workdaysLength, selectedMonth, selectedYear, currentDate, fetchStats]);
 
   const goToPreviousMonth = () => {
     if (selectedMonth === 1) {
@@ -335,7 +320,7 @@ export default function StatsPanel({
               </h3>
 
               <div className="space-y-3">
-                {stats.workplaceBreakdown.map((workplace, index) => (
+                {stats.workplaceBreakdown.map((workplace) => (
                   <div
                     key={workplace.workplaceId}
                     className="bg-gradient-to-r from-white via-white to-slate-50/50 rounded-xl border border-slate-200/50 p-4 hover:shadow-lg transition-all duration-200 group"

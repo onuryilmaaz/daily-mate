@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface WorkDay {
   _id: string;
@@ -45,8 +44,6 @@ export default function CalendarView({
   const [selectedWorkplace, setSelectedWorkplace] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  const router = useRouter();
 
   const today = new Date();
   const year = selectedYear;
@@ -197,7 +194,7 @@ export default function CalendarView({
       }
 
       closeModal();
-    } catch (error) {
+    } catch {
       setError("İşlem sırasında hata oluştu");
     } finally {
       setSubmitting(false);

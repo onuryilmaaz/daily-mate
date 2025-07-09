@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -11,7 +10,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +29,7 @@ export default function LoginPage() {
         // Başarılı giriş - sayfayı yenile
         window.location.href = "/dashboard";
       }
-    } catch (error) {
+    } catch {
       setError("Giriş yaparken bir hata oluştu");
     } finally {
       setLoading(false);
@@ -46,7 +44,7 @@ export default function LoginPage() {
       await signIn("google", {
         callbackUrl: "/dashboard",
       });
-    } catch (error) {
+    } catch {
       setError("Google ile giriş yaparken bir hata oluştu");
       setGoogleLoading(false);
     }

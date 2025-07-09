@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import WorkDay from "@/models/WorkDay.model";
@@ -156,7 +156,11 @@ export async function POST(req: NextRequest) {
     console.error("Çalışma günü oluşturma hatası:", error);
 
     // Duplicate key hatası kontrolü
-    if (error.code === 11000) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as Error & { code?: number }).code === 11000
+    ) {
       return NextResponse.json(
         { error: "Bu tarih için zaten bir kayıt bulunuyor" },
         { status: 400 }

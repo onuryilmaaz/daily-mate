@@ -58,7 +58,7 @@ export default function RegisterPage() {
 
       // Başarılı kayıt sonrası giriş sayfasına yönlendir
       router.push("/login?message=Kayıt başarılı! Şimdi giriş yapabilirsiniz.");
-    } catch (error) {
+    } catch {
       setError("Kayıt olurken bir hata oluştu");
     } finally {
       setLoading(false);

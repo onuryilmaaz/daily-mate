@@ -1,11 +1,18 @@
-import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User.model";
+import type {
+  NextAuthOptions,
+  User as NextAuthUser,
+  Account,
+  Profile,
+  Session,
+} from "next-auth";
+import type { JWT } from "next-auth/jwt";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     // Google OAuth Provider
     GoogleProvider({
@@ -52,7 +59,7 @@ export const authOptions = {
             id: user._id.toString(),
             email: user.email,
             name: user.name,
-            surname: user.surname,
+            surname: user.surname || "",
           };
         } catch (error) {
           console.error("Giriş hatası:", error);
@@ -65,7 +72,15 @@ export const authOptions = {
     strategy: "jwt" as const,
   },
   callbacks: {
-    async signIn({ user, account, profile }: any) {
+    async signIn({
+      user,
+      account,
+      profile,
+    }: {
+      user: NextAuthUser;
+      account: Account | null;
+      profile?: Profile;
+    }) {
       // Google OAuth ile giriş yapıldığında
       if (account?.provider === "google") {
         try {
@@ -90,7 +105,8 @@ export const authOptions = {
             // Kullanıcı bilgilerini güncelle
             user.id = existingUser._id.toString();
             user.name = existingUser.name;
-            user.surname = existingUser.surname;
+            (user as NextAuthUser & { surname: string }).surname =
+              existingUser.surname || "";
           } else {
             // Google'dan gelen isme göre name ve surname'i ayır
             const fullName = profile?.name || user.name || "";
@@ -111,7 +127,8 @@ export const authOptions = {
 
             user.id = newUser._id.toString();
             user.name = newUser.name;
-            user.surname = newUser.surname;
+            (user as NextAuthUser & { surname: string }).surname =
+              newUser.surname || "";
           }
 
           return true;
@@ -123,26 +140,25 @@ export const authOptions = {
 
       return true;
     },
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }: { token: JWT; user?: NextAuthUser }) {
       if (user) {
         token.id = user.id;
         token.name = user.name;
-        token.surname = user.surname;
+        token.surname = (user as NextAuthUser & { surname: string }).surname;
       }
       return token;
     },
-    async session({ session, token }: any) {
+    async session({ session, token }: { session: Session; token?: JWT }) {
       if (token) {
         session.user.id = token.id as string;
         session.user.name = token.name as string;
-        session.user.surname = token.surname as string;
+        session.user.surname = (token as JWT & { surname: string }).surname;
       }
       return session;
     },
   },
   pages: {
     signIn: "/login",
-    signUp: "/register",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

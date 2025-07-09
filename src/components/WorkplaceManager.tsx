@@ -59,7 +59,7 @@ export default function WorkplaceManager({ onUpdate }: WorkplaceManagerProps) {
       }
 
       setWorkplaces(data.workplaces);
-    } catch (error) {
+    } catch {
       setError("İş yerleri yüklenirken hata oluştu");
     } finally {
       setLoading(false);
@@ -138,7 +138,7 @@ export default function WorkplaceManager({ onUpdate }: WorkplaceManagerProps) {
       if (onUpdate) {
         onUpdate();
       }
-    } catch (error) {
+    } catch {
       setError("İşlem sırasında hata oluştu");
     } finally {
       setSubmitting(false);
@@ -192,7 +192,7 @@ export default function WorkplaceManager({ onUpdate }: WorkplaceManagerProps) {
       if (onUpdate) {
         onUpdate();
       }
-    } catch (error) {
+    } catch {
       await Swal.fire({
         title: "Hata!",
         text: "Silme işlemi sırasında hata oluştu",

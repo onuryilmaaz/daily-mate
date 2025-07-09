@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import CalendarView from "@/components/CalendarView";
@@ -43,27 +43,6 @@ export default function DashboardPage() {
   );
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
 
-  // Fetch workplaces only once on mount
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchWorkplaces();
-    }
-  }, [session?.user?.id]);
-
-  // Fetch workdays when month/year changes
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchWorkdays();
-    }
-  }, [session?.user?.id, selectedMonth, selectedYear]);
-
-  // Redirect effect - only redirect if not loading and no session
-  useEffect(() => {
-    if (status !== "loading" && !session?.user?.id) {
-      router.push("/login");
-    }
-  }, [status, session?.user?.id, router]);
-
   const fetchWorkplaces = async () => {
     try {
       setLoading(true);
@@ -80,7 +59,7 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchWorkdays = async () => {
+  const fetchWorkdays = useCallback(async () => {
     try {
       // Don't show full loading for month changes, only workdays loading
       if (workplaces.length > 0) {
@@ -118,7 +97,28 @@ export default function DashboardPage() {
       setLoading(false);
       setWorkdaysLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear, workplaces.length]);
+
+  // Fetch workplaces only once on mount
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchWorkplaces();
+    }
+  }, [session?.user?.id]);
+
+  // Fetch workdays when month/year changes
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchWorkdays();
+    }
+  }, [session?.user?.id, selectedMonth, selectedYear, fetchWorkdays]);
+
+  // Redirect effect - only redirect if not loading and no session
+  useEffect(() => {
+    if (status !== "loading" && !session?.user?.id) {
+      router.push("/login");
+    }
+  }, [status, session?.user?.id, router]);
 
   // Callback when a new workday is added
   const handleWorkdayAdded = (newWorkday: WorkDay) => {
@@ -337,7 +337,8 @@ export default function DashboardPage() {
                     ekleyin.
                   </p>
                   <p className="text-sm text-gray-400">
-                    Sol panelden "İş Yeri Ekle" butonunu kullanabilirsiniz.
+                    Sol panelden &quot;İş Yeri Ekle&quot; butonunu
+                    kullanabilirsiniz.
                   </p>
                 </div>
               ) : (
