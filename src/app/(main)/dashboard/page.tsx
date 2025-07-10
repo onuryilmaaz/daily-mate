@@ -25,9 +25,14 @@ interface Workplace {
   name: string;
   color: string;
   dailyWage: number;
+  isActive?: boolean; // Eski kayıtlarda olmayabilir
 }
 
 export default function DashboardPage() {
+  useEffect(() => {
+    document.title = "Dashboard - Daily Mate";
+  }, []);
+
   // All hooks must be at the top, before any conditional logic
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -123,17 +128,65 @@ export default function DashboardPage() {
   // Callback when a new workday is added
   const handleWorkdayAdded = (newWorkday: WorkDay) => {
     setWorkdays((prev) => [...prev, newWorkday]);
+    // Workplaces'i de yenile (güncellenmiş istatistikler için)
+    fetchWorkplaces();
+  };
+
+  // Callback when a workday is updated
+  const handleWorkdayUpdated = (updatedWorkday: WorkDay) => {
+    setWorkdays((prev) =>
+      prev.map((wd) => (wd._id === updatedWorkday._id ? updatedWorkday : wd))
+    );
+    // Workplaces'i de yenile (güncellenmiş istatistikler için)
+    fetchWorkplaces();
+  };
+
+  // Callback when a workday is deleted
+  const handleWorkdayDeleted = (workdayId: string) => {
+    setWorkdays((prev) => prev.filter((wd) => wd._id !== workdayId));
+    // Workplaces'i de yenile (güncellenmiş istatistikler için)
+    fetchWorkplaces();
   };
 
   // Callback when a workplace is updated
   const handleWorkplacesUpdated = () => {
     fetchWorkplaces();
+    // Workdays'i de yenile (güncellenmiş workplace bilgileri için)
+    fetchWorkdays();
   };
 
   // Callback when month/year changes from stats panel
   const handleDateChange = (month: number, year: number) => {
     setSelectedMonth(month);
     setSelectedYear(year);
+  };
+
+  // Yeni callback: Workplace değiştiğinde workdays'i güncelle
+  const handleWorkplaceChanged = (updatedWorkplace: Workplace) => {
+    // Workplaces listesini güncelle
+    setWorkplaces((prev) =>
+      prev.map((wp) =>
+        wp._id === updatedWorkplace._id ? { ...wp, ...updatedWorkplace } : wp
+      )
+    );
+
+    // Workdays'deki workplace bilgilerini de güncelle
+    setWorkdays((prev) =>
+      prev.map((wd) =>
+        wd.workplaceId._id === updatedWorkplace._id
+          ? {
+              ...wd,
+              workplaceId: {
+                ...wd.workplaceId,
+                name: updatedWorkplace.name,
+                color: updatedWorkplace.color,
+                dailyWage: updatedWorkplace.dailyWage,
+                isActive: updatedWorkplace.isActive || true,
+              },
+            }
+          : wd
+      )
+    );
   };
 
   // Show loading spinner while session is being fetched or while redirecting
@@ -164,21 +217,79 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 shadow-xl border-b border-emerald-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Daily Mate</h1>
-              <p className="text-sm text-gray-600">
-                Hoşgeldiniz, {session.user.name} {session.user.surname}
-              </p>
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center space-x-4">
+              {/* Logo/Brand */}
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <svg
+                  className="w-7 h-7 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+
+              {/* Brand Name & Welcome Text */}
+              <div>
+                <h1 className="text-2xl font-bold text-white">Daily Mate</h1>
+                <p className="text-emerald-100 text-sm">
+                  Hoşgeldiniz, {session.user.name} {session.user.surname}
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Çıkış Yap
-            </button>
+
+            {/* User Section */}
+            <div className="flex items-center space-x-4">
+              {/* User Avatar */}
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {session.user.name?.charAt(0)?.toUpperCase()}
+                    {session.user.surname?.charAt(0)?.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* User Info - Hidden on mobile */}
+                <div className="hidden sm:block">
+                  <p className="text-white font-medium text-sm">
+                    {session.user.name} {session.user.surname}
+                  </p>
+                  <p className="text-emerald-200 text-xs">
+                    {session.user.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 transform hover:scale-105 border border-white/20 hover:border-white/30"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Çıkış Yap</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -232,139 +343,37 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Mobile Layout */}
-        <div className="block lg:hidden space-y-6">
-          {/* Calendar - Mobile */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Çalışma Takvimi
-            </h2>
-            {workplaces.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <svg
-                    className="mx-auto h-16 w-16"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-700 mb-2">
-                  Henüz iş yeri eklenmemiş
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  Çalışma günlerinizi takip etmek için önce bir iş yeri ekleyin.
-                </p>
-              </div>
-            ) : (
-              <div className="relative">
-                {workdaysLoading && (
-                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
-                  </div>
-                )}
-                <CalendarView
-                  workdays={workdays}
-                  workplaces={workplaces}
-                  onWorkdayAdded={handleWorkdayAdded}
-                  selectedMonth={selectedMonth}
-                  selectedYear={selectedYear}
-                  onDateChange={handleDateChange}
-                />
-              </div>
-            )}
+        {/* Main Dashboard Layout for all screen sizes */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Workplace Manager */}
+          <div className="lg:col-span-1 order-3 lg:order-1">
+            <div className="h-full">
+              <WorkplaceManager
+                onUpdate={handleWorkplacesUpdated}
+                onWorkplaceChanged={handleWorkplaceChanged}
+              />
+            </div>
           </div>
 
-          {/* Stats Panel - Mobile */}
-          <div>
-            <StatsPanel
-              workdaysLength={workdays.length}
+          {/* Middle Column: Calendar */}
+          <div className="lg:col-span-1 order-1 lg:order-2">
+            <CalendarView
+              workplaces={workplaces}
+              workdays={workdays}
+              onWorkdayAdded={handleWorkdayAdded}
+              onWorkdayUpdated={handleWorkdayUpdated}
+              onWorkdayDeleted={handleWorkdayDeleted}
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               onDateChange={handleDateChange}
             />
           </div>
 
-          {/* Workplace Manager - Mobile */}
-          <div>
-            <WorkplaceManager onUpdate={handleWorkplacesUpdated} />
-          </div>
-        </div>
-
-        {/* Desktop Layout */}
-        <div className="hidden lg:grid lg:grid-cols-12 gap-6">
-          {/* Workplace Manager - Desktop */}
-          <div className="lg:col-span-3">
-            <WorkplaceManager onUpdate={handleWorkplacesUpdated} />
-          </div>
-
-          {/* Calendar Section - Desktop */}
-          <div className="lg:col-span-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Çalışma Takvimi
-              </h2>
-
-              {workplaces.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-4">
-                    <svg
-                      className="mx-auto h-16 w-16"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">
-                    Henüz iş yeri eklenmemiş
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Çalışma günlerinizi takip etmek için önce bir iş yeri
-                    ekleyin.
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Sol panelden &quot;İş Yeri Ekle&quot; butonunu
-                    kullanabilirsiniz.
-                  </p>
-                </div>
-              ) : (
-                <div className="relative">
-                  {workdaysLoading && (
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
-                    </div>
-                  )}
-                  <CalendarView
-                    workdays={workdays}
-                    workplaces={workplaces}
-                    onWorkdayAdded={handleWorkdayAdded}
-                    selectedMonth={selectedMonth}
-                    selectedYear={selectedYear}
-                    onDateChange={handleDateChange}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Stats Panel - Desktop */}
-          <div className="lg:col-span-3">
+          {/* Right Column: Stats Panel */}
+          <div className="lg:col-span-1 order-2 lg:order-3">
             <StatsPanel
-              workdaysLength={workdays.length}
+              workdays={workdays}
+              workplaces={workplaces}
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               onDateChange={handleDateChange}

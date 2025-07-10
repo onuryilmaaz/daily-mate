@@ -3,8 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useEffect } from "react";
 
 export default function RegisterPage() {
+  useEffect(() => {
+    document.title = "Ücretsiz Hesap Oluştur - Daily Mate";
+
+    // Meta description
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute(
+        "content",
+        "Daily Mate'e ücretsiz katılın. Günlük çalışma saatlerinizi ve kazançlarınızı takip etmeye hemen başlayın. Kredi kartı gerektirmez."
+      );
+    } else {
+      const meta = document.createElement("meta");
+      meta.name = "description";
+      meta.content =
+        "Daily Mate'e ücretsiz katılın. Günlük çalışma saatlerinizi ve kazançlarınızı takip etmeye hemen başlayın. Kredi kartı gerektirmez.";
+      document.head.appendChild(meta);
+    }
+  }, []);
+
   const [formData, setFormData] = useState({
     name: "",
     surname: "",

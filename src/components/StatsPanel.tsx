@@ -28,15 +28,38 @@ interface StatsData {
   workplaceBreakdown: WorkplaceBreakdown[];
 }
 
+interface WorkDay {
+  _id: string;
+  date: string;
+  workplaceId: {
+    _id: string;
+    name: string;
+    color: string;
+    dailyWage: number;
+  };
+  wageOnThatDay: number;
+  userId: string;
+}
+
+interface Workplace {
+  _id: string;
+  name: string;
+  color: string;
+  dailyWage: number;
+  isActive?: boolean;
+}
+
 interface StatsPanelProps {
-  workdaysLength?: number;
+  workdays: WorkDay[];
+  workplaces: Workplace[];
   selectedMonth: number;
   selectedYear: number;
   onDateChange: (month: number, year: number) => void;
 }
 
 export default function StatsPanel({
-  workdaysLength,
+  workdays,
+  workplaces,
   selectedMonth,
   selectedYear,
   onDateChange,
@@ -47,6 +70,95 @@ export default function StatsPanel({
 
   const currentDate = useMemo(() => new Date(), []);
 
+  // Hesapla stats'i workdays ve workplaces'den
+  const calculateStats = useCallback(() => {
+    const monthNames = [
+      "Ocak",
+      "Şubat",
+      "Mart",
+      "Nisan",
+      "Mayıs",
+      "Haziran",
+      "Temmuz",
+      "Ağustos",
+      "Eylül",
+      "Ekim",
+      "Kasım",
+      "Aralık",
+    ];
+
+    const totalEarnings = workdays.reduce(
+      (sum, wd) => sum + wd.wageOnThatDay,
+      0
+    );
+    const totalWorkDays = workdays.length;
+    const averageDailyEarning =
+      totalWorkDays > 0 ? totalEarnings / totalWorkDays : 0;
+
+    // İş yeri bazında breakdown
+    const workplaceMap = new Map<string, WorkplaceBreakdown>();
+
+    workdays.forEach((wd) => {
+      const wpId = wd.workplaceId._id;
+      if (!workplaceMap.has(wpId)) {
+        workplaceMap.set(wpId, {
+          workplaceId: wpId,
+          name: wd.workplaceId.name,
+          color: wd.workplaceId.color,
+          defaultWage: wd.workplaceId.dailyWage,
+          totalDays: 0,
+          totalEarnings: 0,
+          averageWage: 0,
+          percentage: 0,
+        });
+      }
+
+      const breakdown = workplaceMap.get(wpId)!;
+      breakdown.totalDays += 1;
+      breakdown.totalEarnings += wd.wageOnThatDay;
+    });
+
+    // Yüzdeleri ve ortalamalarıHesapla
+    const workplaceBreakdown = Array.from(workplaceMap.values()).map(
+      (breakdown) => ({
+        ...breakdown,
+        averageWage:
+          breakdown.totalDays > 0
+            ? breakdown.totalEarnings / breakdown.totalDays
+            : 0,
+        percentage:
+          totalEarnings > 0
+            ? (breakdown.totalEarnings / totalEarnings) * 100
+            : 0,
+      })
+    );
+
+    return {
+      period: {
+        month: selectedMonth,
+        year: selectedYear,
+        monthName: monthNames[selectedMonth - 1],
+      },
+      summary: {
+        totalEarnings,
+        totalWorkDays,
+        averageDailyEarning,
+        workplaceCount: workplaceBreakdown.length,
+      },
+      workplaceBreakdown: workplaceBreakdown.sort(
+        (a, b) => b.totalEarnings - a.totalEarnings
+      ),
+    };
+  }, [workdays, selectedMonth, selectedYear]);
+
+  // Workdays değiştiğinde stats'i yeniden hesapla
+  useEffect(() => {
+    setLoading(true);
+    const newStats = calculateStats();
+    setStats(newStats);
+    setLoading(false);
+  }, [calculateStats]);
+
   const years = [];
   for (
     let year = currentDate.getFullYear() - 1;
@@ -55,42 +167,6 @@ export default function StatsPanel({
   ) {
     years.push(year);
   }
-
-  const fetchStats = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await fetch(
-        `/api/stats?month=${selectedMonth}&year=${selectedYear}`
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "İstatistikler yüklenirken hata oluştu");
-        return;
-      }
-
-      setStats(data);
-    } catch {
-      setError("İstatistikler yüklenirken hata oluştu");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth, selectedYear]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [selectedMonth, selectedYear, fetchStats]);
-
-  useEffect(() => {
-    if (
-      workdaysLength !== undefined &&
-      selectedMonth === currentDate.getMonth() + 1 &&
-      selectedYear === currentDate.getFullYear()
-    ) {
-      fetchStats();
-    }
-  }, [workdaysLength, selectedMonth, selectedYear, currentDate, fetchStats]);
 
   const goToPreviousMonth = () => {
     if (selectedMonth === 1) {
@@ -151,7 +227,7 @@ export default function StatsPanel({
           </h3>
           <p className="text-sm text-gray-600 mb-6">{error}</p>
           <button
-            onClick={fetchStats}
+            onClick={() => setError("")} // Clear error on retry
             className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
           >
             Tekrar Dene

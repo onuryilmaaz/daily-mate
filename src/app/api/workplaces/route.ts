@@ -19,6 +19,10 @@ export async function GET() {
 
     const workplaces = await Workplace.find({
       userId: session.user.id,
+      $or: [
+        { isActive: true },
+        { isActive: { $exists: false } }, // Eski kayıtlar için
+      ],
     }).sort({ createdAt: -1 });
 
     return NextResponse.json({ workplaces });
@@ -63,6 +67,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       dailyWage: Number(dailyWage),
       color: color || "#3B82F6",
+      isActive: true, // Açıkça belirt
     });
 
     await newWorkplace.save();

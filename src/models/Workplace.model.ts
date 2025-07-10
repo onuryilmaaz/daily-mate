@@ -1,33 +1,29 @@
-import mongoose, { Document, Schema } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
-export interface IWorkplace extends Document {
-  userId: mongoose.Types.ObjectId;
-  name: string;
-  dailyWage: number;
-  color: string;
-}
-
-const WorkplaceSchema: Schema = new Schema(
+const WorkplaceSchema = new Schema(
   {
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Kullanıcı ID zorunludur"],
-    },
     name: {
       type: String,
-      required: [true, "İş yeri adı zorunludur"],
+      required: [true, "İş yeri adı zorunludur."],
       trim: true,
     },
     dailyWage: {
       type: Number,
-      required: [true, "Günlük yevmiye zorunludur"],
-      min: [0, "Yevmiye 0'dan küçük olamaz"],
+      required: [true, "Günlük yevmiye zorunludur."],
     },
     color: {
       type: String,
-      required: [true, "Renk zorunludur"],
-      default: "#3B82F6", // Varsayılan mavi renk
+      required: [true, "Renk zorunludur."],
+      default: "#3B82F6",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
   },
   {
@@ -35,11 +31,6 @@ const WorkplaceSchema: Schema = new Schema(
   }
 );
 
-// Kullanıcı bazında sıralama için index
-WorkplaceSchema.index({ userId: 1, createdAt: -1 });
-
-const Workplace =
-  mongoose.models.Workplace ||
-  mongoose.model<IWorkplace>("Workplace", WorkplaceSchema);
+const Workplace = models.Workplace || model("Workplace", WorkplaceSchema);
 
 export default Workplace;

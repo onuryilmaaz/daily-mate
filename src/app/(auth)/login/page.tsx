@@ -3,8 +3,28 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { useEffect } from "react";
 
 export default function LoginPage() {
+  useEffect(() => {
+    document.title = "Giriş Yap - Daily Mate";
+
+    // Meta description
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute(
+        "content",
+        "Daily Mate hesabınıza giriş yapın. Günlük çalışma takibinize kaldığınız yerden devam edin."
+      );
+    } else {
+      const meta = document.createElement("meta");
+      meta.name = "description";
+      meta.content =
+        "Daily Mate hesabınıza giriş yapın. Günlük çalışma takibinize kaldığınız yerden devam edin.";
+      document.head.appendChild(meta);
+    }
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
