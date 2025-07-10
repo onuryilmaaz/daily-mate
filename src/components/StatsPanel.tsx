@@ -41,17 +41,10 @@ interface WorkDay {
   userId: string;
 }
 
-interface Workplace {
-  _id: string;
-  name: string;
-  color: string;
-  dailyWage: number;
-  isActive?: boolean;
-}
+
 
 interface StatsPanelProps {
   workdays: WorkDay[];
-  workplaces: Workplace[];
   selectedMonth: number;
   selectedYear: number;
   onDateChange: (month: number, year: number) => void;
@@ -59,7 +52,6 @@ interface StatsPanelProps {
 
 export default function StatsPanel({
   workdays,
-  workplaces,
   selectedMonth,
   selectedYear,
   onDateChange,

@@ -15,6 +15,7 @@ interface WorkDay {
     name: string;
     color: string;
     dailyWage: number;
+    isActive: boolean;
   };
   wageOnThatDay: number;
   userId: string;
@@ -25,7 +26,7 @@ interface Workplace {
   name: string;
   color: string;
   dailyWage: number;
-  isActive?: boolean; // Eski kayıtlarda olmayabilir
+  isActive: boolean;
 }
 
 export default function DashboardPage() {
@@ -39,7 +40,6 @@ export default function DashboardPage() {
   const [workplaces, setWorkplaces] = useState<Workplace[]>([]);
   const [workdays, setWorkdays] = useState<WorkDay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [workdaysLoading, setWorkdaysLoading] = useState(false);
 
   // Shared date state for both calendar and stats
   const currentDate = new Date();
@@ -55,7 +55,17 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setWorkplaces(data.workplaces || []);
+        const workplacesWithDefaults = (data.workplaces || []).map(
+          (wp: unknown) => {
+            const workplace = wp as Workplace & { isActive?: boolean };
+            return {
+              ...workplace,
+              isActive:
+                workplace.isActive !== undefined ? workplace.isActive : true,
+            };
+          }
+        );
+        setWorkplaces(workplacesWithDefaults);
       }
     } catch (error) {
       console.error("Error fetching workplaces:", error);
@@ -66,12 +76,7 @@ export default function DashboardPage() {
 
   const fetchWorkdays = useCallback(async () => {
     try {
-      // Don't show full loading for month changes, only workdays loading
-      if (workplaces.length > 0) {
-        setWorkdaysLoading(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
 
       // Calculate start and end dates for the selected month
       const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1);
@@ -94,15 +99,31 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setWorkdays(data.workdays || []);
+        const workdaysWithDefaults = (data.workdays || []).map(
+          (wd: unknown) => {
+            const workday = wd as WorkDay & {
+              workplaceId: WorkDay["workplaceId"] & { isActive?: boolean };
+            };
+            return {
+              ...workday,
+              workplaceId: {
+                ...workday.workplaceId,
+                isActive:
+                  workday.workplaceId.isActive !== undefined
+                    ? workday.workplaceId.isActive
+                    : true,
+              },
+            };
+          }
+        );
+        setWorkdays(workdaysWithDefaults);
       }
     } catch (error) {
       console.error("Error fetching workdays:", error);
     } finally {
       setLoading(false);
-      setWorkdaysLoading(false);
     }
-  }, [selectedMonth, selectedYear, workplaces.length]);
+  }, [selectedMonth, selectedYear]);
 
   // Fetch workplaces only once on mount
   useEffect(() => {
@@ -181,7 +202,7 @@ export default function DashboardPage() {
                 name: updatedWorkplace.name,
                 color: updatedWorkplace.color,
                 dailyWage: updatedWorkplace.dailyWage,
-                isActive: updatedWorkplace.isActive || true,
+                isActive: updatedWorkplace.isActive,
               },
             }
           : wd
@@ -373,7 +394,6 @@ export default function DashboardPage() {
           <div className="lg:col-span-1 order-2 lg:order-3">
             <StatsPanel
               workdays={workdays}
-              workplaces={workplaces}
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               onDateChange={handleDateChange}

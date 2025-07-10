@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import Script from 'next/script';
-import { useEffect } from 'react';
+import Script from "next/script";
+import { useEffect } from "react";
 
 declare global {
   interface Window {
-    gtag: (...args: any[]) => void;
-    dataLayer: any[];
+    gtag: (...args: unknown[]) => void;
+    dataLayer: unknown[];
   }
 }
 
@@ -18,11 +18,11 @@ export default function Analytics() {
     if (GA_ID) {
       // Google Analytics 4
       window.dataLayer = window.dataLayer || [];
-      function gtag(...args: any[]) {
+      function gtag(...args: unknown[]) {
         window.dataLayer.push(args);
       }
-      gtag('js', new Date());
-      gtag('config', GA_ID, {
+      gtag("js", new Date());
+      gtag("config", GA_ID, {
         page_title: document.title,
         page_location: window.location.href,
       });
@@ -73,7 +73,7 @@ export default function Analytics() {
               src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
               height="0"
               width="0"
-              style={{ display: 'none', visibility: 'hidden' }}
+              style={{ display: "none", visibility: "hidden" }}
             />
           </noscript>
         </>
@@ -95,7 +95,9 @@ export default function Analytics() {
         {`
           (function(h,o,t,j,a,r){
               h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-              h._hjSettings={hjid:${process.env.NEXT_PUBLIC_HOTJAR_ID || 0},hjsv:6};
+              h._hjSettings={hjid:${
+                process.env.NEXT_PUBLIC_HOTJAR_ID || 0
+              },hjsv:6};
               a=o.getElementsByTagName('head')[0];
               r=o.createElement('script');r.async=1;
               r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
@@ -110,42 +112,44 @@ export default function Analytics() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'WebApplication',
-            name: 'Daily Mate',
-            description: 'Günlük çalışma saatlerinizi, kazançlarınızı ve iş yerlerinizi kolayca takip edin.',
-            url: process.env.NEXT_PUBLIC_APP_URL || 'https://dailymate.app',
-            applicationCategory: 'ProductivityApplication',
-            operatingSystem: 'Web Browser',
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            name: "Daily Mate",
+            description:
+              "Günlük çalışma saatlerinizi, kazançlarınızı ve iş yerlerinizi kolayca takip edin.",
+            url: process.env.NEXT_PUBLIC_APP_URL || "https://dailymate.app",
+            applicationCategory: "ProductivityApplication",
+            operatingSystem: "Web Browser",
             offers: {
-              '@type': 'Offer',
-              price: '0',
-              priceCurrency: 'TRY',
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "TRY",
             },
             author: {
-              '@type': 'Organization',
-              name: 'Daily Mate Team',
+              "@type": "Organization",
+              name: "Daily Mate Team",
             },
-            datePublished: '2024-01-01',
-            inLanguage: 'tr-TR',
+            datePublished: "2024-01-01",
+            inLanguage: "tr-TR",
             isAccessibleForFree: true,
             aggregateRating: {
-              '@type': 'AggregateRating',
-              ratingValue: '4.8',
-              reviewCount: '127',
+              "@type": "AggregateRating",
+              ratingValue: "4.8",
+              reviewCount: "127",
             },
             review: [
               {
-                '@type': 'Review',
+                "@type": "Review",
                 author: {
-                  '@type': 'Person',
-                  name: 'Freelancer User',
+                  "@type": "Person",
+                  name: "Freelancer User",
                 },
                 reviewRating: {
-                  '@type': 'Rating',
-                  ratingValue: '5',
+                  "@type": "Rating",
+                  ratingValue: "5",
                 },
-                reviewBody: 'Günlük çalışma takibim için mükemmel bir uygulama. Çok pratik ve kullanışlı.',
+                reviewBody:
+                  "Günlük çalışma takibim için mükemmel bir uygulama. Çok pratik ve kullanışlı.",
               },
             ],
           }),
@@ -153,4 +157,4 @@ export default function Analytics() {
       />
     </>
   );
-} 
+}
